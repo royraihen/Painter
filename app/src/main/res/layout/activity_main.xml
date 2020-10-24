@@ -41,7 +41,7 @@
         android:orientation="vertical"
         android:visibility="gone">
 
-        <ImageView
+        <ja.burhanrashid52.photoeditor.PhotoEditorView
             android:id="@+id/IV"
             android:layout_width="match_parent"
             android:layout_height="0dp"
@@ -57,6 +57,7 @@
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="1"
+                android:textSize="10sp"
                 android:text="Back"/>
 
             <Button
@@ -64,13 +65,31 @@
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="1"
+                android:textSize="10sp"
                 android:text="Brush"/>
+
+            <Button
+                android:id="@+id/crop"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:textSize="10sp"
+                android:text="Crop"/>
+
+            <Button
+                android:id="@+id/tilt"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:textSize="10sp"
+                android:text="Tilt"/>
 
             <Button
                 android:id="@+id/save"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="1"
+                android:textSize="10sp"
                 android:text="Save"/>
         </LinearLayout>
 
