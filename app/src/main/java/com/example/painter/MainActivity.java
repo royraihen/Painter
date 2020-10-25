@@ -38,13 +38,17 @@ import java.net.URI;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
+import ja.burhanrashid52.photoeditor.PhotoEditor;
+import ja.burhanrashid52.photoeditor.PhotoEditorView;
+
 public class MainActivity extends AppCompatActivity {
     private Button selectImageBtn;
     private Button bwBtn;
     private Button takePictureBtn;
     private Button saveImage;
     private Button backBtn;
-    private ImageView imageView;
+    private PhotoEditorView imageView;
+    private PhotoEditor photoEditor;
 
     float downx = 0, downy = 0;
     float upx = 0, upy = 0;
@@ -125,6 +129,8 @@ public class MainActivity extends AppCompatActivity {
         saveImage = findViewById(R.id.save);
         backBtn = findViewById(R.id.back);
 
+        photoEditor = new PhotoEditor.Builder(this,imageView).setPinchTextScalable(true).build();
+
 
         selectImageBtn.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -159,21 +165,24 @@ public class MainActivity extends AppCompatActivity {
         bwBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                new Thread() {
-                    public void run() {
-                        for (int i = 0; i < pixCount; i++) {
-                            pixels[i] /= 2;
-                        }
-                        bitmap.setPixels(pixels, 0, width, 0, 0, width, height);
-
-                        runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                imageView.setImageBitmap(bitmap);
-                            }
-                        });
-                    }
-                }.start();
+//                new Thread() {
+//                    public void run() {
+//                        for (int i = 0; i < pixCount; i++) {
+//                            pixels[i] /= 2;
+//                        }
+//                        bitmap.setPixels(pixels, 0, width, 0, 0, width, height);
+//
+//                        runOnUiThread(new Runnable() {
+//                            @Override
+//                            public void run() {
+//                                imageView.getSource().setImageBitmap(bitmap);
+//                            }
+//                        });
+//                    }
+//                }.start();
+                BrushFragment brushFragment = BrushFragment.getInstace();
+                brushFragment.setListener(MainActivity.this);
+                brushFragment.show(getSupportFragmentManager(),brushFragment.getTag());
             }
         });
 
@@ -212,7 +221,11 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+
+
     }
+
+
 
     public void onBackPressed(){
         if(editMode){
@@ -344,7 +357,7 @@ public class MainActivity extends AppCompatActivity {
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        imageView.setImageBitmap(bitmap);
+                        imageView.getSource().setImageBitmap(bitmap);
                         dialog.cancel();
 
                     }
