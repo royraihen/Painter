@@ -40,4 +40,5 @@ dependencies {
     implementation 'com.karumi:dexter:4.1.0'
     implementation 'info.androidhive:imagefilters:1.0.7'
     implementation 'ja.burhanrashid52:photoeditor:0.2.1'
+    implementation 'com.github.yalantis:ucrop:2.2.2-native'
 }

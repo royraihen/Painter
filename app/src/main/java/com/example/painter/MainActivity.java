@@ -30,6 +30,7 @@ import android.widget.Toast;
 
 import com.example.painter.Interface.BrushFragmentListener;
 import com.example.painter.Interface.TextFragmentListener;
+import com.yalantis.ucrop.UCrop;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -39,17 +40,16 @@ import java.io.InputStream;
 import java.net.URI;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.UUID;
 
 import ja.burhanrashid52.photoeditor.PhotoEditor;
 import ja.burhanrashid52.photoeditor.PhotoEditorView;
 
 /*
  * TODO:
- *  TEXT
- *  CROP
- *  TILT
  *  FIX SAVE
  *  REMOVE BRUSH COLOR SEEKBAR
+ *  ADD METHOD getSource
  * */
 
 public class MainActivity extends AppCompatActivity implements BrushFragmentListener, TextFragmentListener {
@@ -57,6 +57,7 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
     private Button bwBtn;
     private Button textBtn;
     private Button takePictureBtn;
+    private Button cropBtn;
     private Button saveImage;
     private Button backBtn;
     private PhotoEditorView imageView;
@@ -78,6 +79,7 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
     };
 
     private Uri imageUri;
+    private Uri selectedImageUri;
     private static final String appID = "photoEditor";
 
 
@@ -138,6 +140,7 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
         imageView = findViewById(R.id.IV);
         bwBtn = findViewById(R.id.bw);
         textBtn = findViewById(R.id.text);
+        cropBtn = findViewById(R.id.crop);
         saveImage = findViewById(R.id.save);
         backBtn = findViewById(R.id.back);
 
@@ -194,6 +197,13 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
             }
         });
 
+        cropBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                startCrop(selectedImageUri);
+            }
+        });
+
         saveImage.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -230,6 +240,13 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
         });
 
 
+    }
+
+    private void startCrop(Uri selectedImageUri) {
+        String dest = new StringBuilder(UUID.randomUUID().toString()).append(".jpg").toString();
+        UCrop uCrop = UCrop.of(selectedImageUri, Uri.fromFile(new File(getCacheDir(),dest)));
+
+        uCrop.start(MainActivity.this);
     }
 
 
@@ -307,6 +324,12 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
             return;
         } else if (requestCode == REQUEST_PICK_IMAGE) {
             imageUri = data.getData();
+            selectedImageUri = data.getData();
+        } else if(requestCode == UCrop.REQUEST_CROP){
+            handleCropResult(data);
+        }
+        if(resultCode == UCrop.RESULT_ERROR){
+            handleCropError(data);
         }
 
         final ProgressDialog dialog = ProgressDialog.show(MainActivity.this, "Loading",
@@ -350,10 +373,6 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
                     return;
                 }
                 bitmap = BitmapFactory.decodeStream(inputStream, null, options);
-                paint = new Paint();
-                paint.setColor(Color.GREEN);
-                paint.setStrokeWidth(15);
-                matrix = new Matrix();
 
                 runOnUiThread(new Runnable() {
                     @Override
@@ -374,6 +393,27 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
 
             }
         }.start();
+
+    }
+
+    private void handleCropError(Intent data) {
+        final Throwable cropError = UCrop.getError(data);
+        if(cropError != null){
+            Toast.makeText(this,""+cropError.getMessage(),Toast.LENGTH_SHORT).show();
+        }
+        else{
+            Toast.makeText(this,"Unexpected Error",Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void handleCropResult(Intent data) {
+        final Uri resultUri = UCrop.getOutput(data);
+        if (resultUri != null){
+            photoEditor.getSource().setImageUri(resultUri);
+        }
+        else {
+            Toast.makeText(this,"Error retrieving cropped image", Toast.LENGTH_SHORT).show();
+        }
 
     }
 
