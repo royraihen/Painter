@@ -29,6 +29,7 @@ import android.widget.ImageView;
 import android.widget.Toast;
 
 import com.example.painter.Interface.BrushFragmentListener;
+import com.example.painter.Interface.TextFragmentListener;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -43,17 +44,18 @@ import ja.burhanrashid52.photoeditor.PhotoEditor;
 import ja.burhanrashid52.photoeditor.PhotoEditorView;
 
 /*
-* TODO:
-*  TEXT
-*  CROP
-*  TILT
-*  FIX SAVE
-*  REMOVE BRUSH COLOR SEEKBAR
-* */
+ * TODO:
+ *  TEXT
+ *  CROP
+ *  TILT
+ *  FIX SAVE
+ *  REMOVE BRUSH COLOR SEEKBAR
+ * */
 
-public class MainActivity extends AppCompatActivity implements BrushFragmentListener {
+public class MainActivity extends AppCompatActivity implements BrushFragmentListener, TextFragmentListener {
     private Button selectImageBtn;
     private Button bwBtn;
+    private Button textBtn;
     private Button takePictureBtn;
     private Button saveImage;
     private Button backBtn;
@@ -135,10 +137,11 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
         takePictureBtn = findViewById(R.id.takePictureBtn);
         imageView = findViewById(R.id.IV);
         bwBtn = findViewById(R.id.bw);
+        textBtn = findViewById(R.id.text);
         saveImage = findViewById(R.id.save);
         backBtn = findViewById(R.id.back);
 
-        photoEditor = new PhotoEditor.Builder(this,imageView).setPinchTextScalable(true).build();
+        photoEditor = new PhotoEditor.Builder(this, imageView).setPinchTextScalable(true).build();
 
 
         selectImageBtn.setOnClickListener(new View.OnClickListener() {
@@ -178,7 +181,16 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
                 photoEditor.setBrushDrawingMode(true);
                 BrushFragment brushFragment = BrushFragment.getInstace();
                 brushFragment.setListener(MainActivity.this);
-                brushFragment.show(getSupportFragmentManager(),brushFragment.getTag());
+                brushFragment.show(getSupportFragmentManager(), brushFragment.getTag());
+            }
+        });
+
+        textBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                TextFragment textFragment = TextFragment.getInstance();
+                textFragment.setListener(MainActivity.this);
+                textFragment.show(getSupportFragmentManager(),textFragment.getTag());
             }
         });
 
@@ -218,18 +230,15 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
         });
 
 
-
     }
 
 
-
-    public void onBackPressed(){
-        if(editMode){
+    public void onBackPressed() {
+        if (editMode) {
             findViewById(R.id.editScreen).setVisibility(View.GONE);
             findViewById(R.id.welcomeScreen).setVisibility(View.VISIBLE);
             editMode = false;
-        }
-        else{
+        } else {
             super.onBackPressed();
         }
     }
@@ -380,9 +389,14 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
 
     @Override
     public void onBrushStateChangedListener(boolean isEraser) {
-        if(isEraser)
+        if (isEraser)
             photoEditor.brushEraser();
         else
             photoEditor.setBrushDrawingMode(true);
+    }
+
+    @Override
+    public void onTextButtonClicked(String actualText, int color) {
+        photoEditor.addText(actualText, color);
     }
 }

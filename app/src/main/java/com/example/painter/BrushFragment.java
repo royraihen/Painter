@@ -62,7 +62,7 @@ public class BrushFragment extends BottomSheetDialogFragment implements ColorAda
         recyclerView_color.setHasFixedSize(true);
         recyclerView_color.setLayoutManager(new LinearLayoutManager(getActivity(),LinearLayoutManager.HORIZONTAL,false));
 
-        colorAdapter = new ColorAdapter(getContext(),genColorList(), (ColorAdapter.ColorAdapterListener) this);
+        colorAdapter = new ColorAdapter(getContext(), (ColorAdapter.ColorAdapterListener) this);
         recyclerView_color.setAdapter(colorAdapter);
 
         seekBar_brush_size.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
@@ -107,18 +107,7 @@ public class BrushFragment extends BottomSheetDialogFragment implements ColorAda
         return itemView;
     }
 
-    private List<Integer> genColorList(){
-        List<Integer> colorList = new ArrayList<>();
 
-        colorList.add(Color.parseColor("#131722"));
-        colorList.add(Color.parseColor("#eb4b35"));
-        colorList.add(Color.parseColor("#ebbe20"));
-        colorList.add(Color.parseColor("#badeda"));
-        colorList.add(Color.parseColor("#f8f1ea"));
-        colorList.add(Color.parseColor("#79893c"));
-
-        return colorList;
-    }
 
     public void onColorSelected(int color){
         listener.onBrushColorChangedListener(color);
