@@ -11,7 +11,7 @@
         android:id="@+id/add_text_et"
         android:maxHeight="200dp"
         android:layout_width="match_parent"
-        android:layout_height="100dp"
+        android:layout_height="50dp"
         android:scrollbars="vertical"
         android:hint="Enter Text"/>
 
@@ -19,11 +19,16 @@
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recycler_color"
         android:layout_width="match_parent"
-        android:layout_height="80dp"></androidx.recyclerview.widget.RecyclerView>
+        android:layout_height="80dp"
+        android:layout_below="@id/add_text_et">
 
+    </androidx.recyclerview.widget.RecyclerView>
     <Button
         android:id="@+id/add_text_btn"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_below="@id/recycler_color"
         android:text="ADD"/>
+
+
 </RelativeLayout>
