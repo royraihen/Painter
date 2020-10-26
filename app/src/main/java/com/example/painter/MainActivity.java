@@ -13,7 +13,6 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.Paint;
@@ -43,7 +42,16 @@ import java.util.Date;
 import ja.burhanrashid52.photoeditor.PhotoEditor;
 import ja.burhanrashid52.photoeditor.PhotoEditorView;
 
-public class MainActivity extends AppCompatActivity {
+/*
+* TODO:
+*  TEXT
+*  CROP
+*  TILT
+*  FIX SAVE
+*  REMOVE BRUSH COLOR SEEKBAR
+* */
+
+public class MainActivity extends AppCompatActivity implements BrushFragmentListener {
     private Button selectImageBtn;
     private Button bwBtn;
     private Button takePictureBtn;
@@ -58,7 +66,6 @@ public class MainActivity extends AppCompatActivity {
     Matrix matrix;
 
 
-    private Canvas canvas;
     private final static int REQUEST_PERMISSIONS = 111;
     private final static int REQUEST_PICK_IMAGE = 112;
     private static final int REQUEST_IMAGE_CAPTURE = 113;
@@ -167,23 +174,10 @@ public class MainActivity extends AppCompatActivity {
         bwBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-//                new Thread() {
-//                    public void run() {
-//                        for (int i = 0; i < pixCount; i++) {
-//                            pixels[i] /= 2;
-//                        }
-//                        bitmap.setPixels(pixels, 0, width, 0, 0, width, height);
-//
-//                        runOnUiThread(new Runnable() {
-//                            @Override
-//                            public void run() {
-//                                imageView.getSource().setImageBitmap(bitmap);
-//                            }
-//                        });
-//                    }
-//                }.start();
+
+                photoEditor.setBrushDrawingMode(true);
                 BrushFragment brushFragment = BrushFragment.getInstace();
-                brushFragment.setListener((BrushFragmentListener) MainActivity.this);
+                brushFragment.setListener(MainActivity.this);
                 brushFragment.show(getSupportFragmentManager(),brushFragment.getTag());
             }
         });
@@ -265,7 +259,6 @@ public class MainActivity extends AppCompatActivity {
             case MotionEvent.ACTION_MOVE:
                 upx = event.getX();
                 upy = event.getY();
-                //canvas.drawLine(downx, downy, upx, upy, paint);
                 imageView.invalidate();
                 downx = upx;
                 downy = upy;
@@ -273,7 +266,6 @@ public class MainActivity extends AppCompatActivity {
             case MotionEvent.ACTION_UP:
                 upx = event.getX();
                 upy = event.getY();
-                //canvas.drawLine(downx, downy, upx, upy, paint);
                 imageView.invalidate();
                 break;
             case MotionEvent.ACTION_CANCEL:
@@ -349,12 +341,10 @@ public class MainActivity extends AppCompatActivity {
                     return;
                 }
                 bitmap = BitmapFactory.decodeStream(inputStream, null, options);
-                //canvas = new Canvas(bitmap);
                 paint = new Paint();
                 paint.setColor(Color.GREEN);
                 paint.setStrokeWidth(15);
                 matrix = new Matrix();
-//                canvas.drawBitmap(bitmap, matrix, paint);
 
                 runOnUiThread(new Runnable() {
                     @Override
@@ -376,5 +366,23 @@ public class MainActivity extends AppCompatActivity {
             }
         }.start();
 
+    }
+
+    @Override
+    public void onBrushSizeChangedListener(float size) {
+        photoEditor.setBrushSize(size);
+    }
+
+    @Override
+    public void onBrushColorChangedListener(int color) {
+        photoEditor.setBrushColor(color);
+    }
+
+    @Override
+    public void onBrushStateChangedListener(boolean isEraser) {
+        if(isEraser)
+            photoEditor.brushEraser();
+        else
+            photoEditor.setBrushDrawingMode(true);
     }
 }
