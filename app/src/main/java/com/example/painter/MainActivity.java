@@ -29,6 +29,8 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.Toast;
 
+import com.example.painter.Interface.BrushFragmentListener;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -181,7 +183,7 @@ public class MainActivity extends AppCompatActivity {
 //                    }
 //                }.start();
                 BrushFragment brushFragment = BrushFragment.getInstace();
-                brushFragment.setListener(MainActivity.this);
+                brushFragment.setListener((BrushFragmentListener) MainActivity.this);
                 brushFragment.show(getSupportFragmentManager(),brushFragment.getTag());
             }
         });

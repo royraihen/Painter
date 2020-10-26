@@ -39,9 +39,14 @@ public class BrushFragment extends BottomSheetDialogFragment implements ColorAda
         return instace;
     }
 
+    public void setListener(BrushFragmentListener listener) {
+        this.listener = listener;
+    }
+
     public BrushFragment() {
         // Required empty public constructor
     }
+
 
 
 
