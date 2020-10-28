@@ -1,6 +1,8 @@
 package com.example.painter;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.coordinatorlayout.widget.CoordinatorLayout;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
@@ -22,6 +24,8 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.StrictMode;
 import android.provider.MediaStore;
+import android.text.TextUtils;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
@@ -30,6 +34,12 @@ import android.widget.Toast;
 
 import com.example.painter.Interface.BrushFragmentListener;
 import com.example.painter.Interface.TextFragmentListener;
+import com.google.android.material.snackbar.Snackbar;
+import com.karumi.dexter.Dexter;
+import com.karumi.dexter.MultiplePermissionsReport;
+import com.karumi.dexter.PermissionToken;
+import com.karumi.dexter.listener.PermissionRequest;
+import com.karumi.dexter.listener.multi.MultiplePermissionsListener;
 import com.yalantis.ucrop.UCrop;
 
 import java.io.File;
@@ -40,6 +50,7 @@ import java.io.InputStream;
 import java.net.URI;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
 import java.util.UUID;
 
 import ja.burhanrashid52.photoeditor.PhotoEditor;
@@ -48,8 +59,6 @@ import ja.burhanrashid52.photoeditor.PhotoEditorView;
 /*
  * TODO:
  *  FIX SAVE
- *  REMOVE BRUSH COLOR SEEKBAR
- *  ADD METHOD getSource
  * */
 
 public class MainActivity extends AppCompatActivity implements BrushFragmentListener, TextFragmentListener {
@@ -62,6 +71,9 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
     private Button backBtn;
     private PhotoEditorView imageView;
     private PhotoEditor photoEditor;
+    private Bitmap finalBitmap;
+    private CoordinatorLayout coordinatorLayout;
+
 
     float downx = 0, downy = 0;
     float upx = 0, upy = 0;
@@ -84,6 +96,10 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
 
 
     private static boolean editMode = false;
+
+    static {
+        System.loadLibrary("NativeImageProcessor");
+    }
 
 
     @Override
@@ -205,28 +221,41 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
         });
 
         saveImage.setOnClickListener(new View.OnClickListener() {
+            @SuppressLint("MissingPermission")
             @Override
             public void onClick(View view) {
-                final AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
-                final DialogInterface.OnClickListener onClickListener = new DialogInterface.OnClickListener() {
+                String photoDir = Environment.getExternalStorageDirectory() + "/" + Environment.DIRECTORY_DCIM + "/";
+                photoEditor.saveAsFile(photoDir, new PhotoEditor.OnSaveListener() {
                     @Override
-                    public void onClick(DialogInterface dialogInterface, int i) {
-                        if (i == DialogInterface.BUTTON_POSITIVE) {
-                            final File outFile = createImageFile();
-                            try (FileOutputStream out = new FileOutputStream(outFile)) {
-                                bitmap.compress(Bitmap.CompressFormat.JPEG, 100, out);
-                                imageUri = Uri.parse("file://" + outFile.getAbsolutePath());
-                                sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, imageUri));
-                                Toast.makeText(MainActivity.this, "SAVED", Toast.LENGTH_SHORT).show();
-                            } catch (IOException e) {
-                                e.printStackTrace();
-                            }
-                        }
+                    public void onSuccess(@NonNull String imagePath) {
+                        Log.e("PhotoEditor","Image Saved Successfully");
+
                     }
-                };
-                builder.setMessage("Save current photo to Gallery?")
-                        .setPositiveButton("Yes", onClickListener)
-                        .setNegativeButton("No", onClickListener).show();
+                    @Override
+                    public void onFailure(@NonNull Exception exception) {
+                        Log.e("PhotoEditor","Failed to save Image");
+                    }
+                });
+//                final AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
+//                final DialogInterface.OnClickListener onClickListener = new DialogInterface.OnClickListener() {
+//                    @Override
+//                    public void onClick(DialogInterface dialogInterface, int i) {
+//                        if (i == DialogInterface.BUTTON_POSITIVE) {
+//                            final File outFile = createImageFile();
+//                            try (FileOutputStream out = new FileOutputStream(outFile)) {
+//                                bitmap.compress(Bitmap.CompressFormat.JPEG, 100, out);
+//                                imageUri = Uri.parse("file://" + outFile.getAbsolutePath());
+//                                sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, imageUri));
+//                                Toast.makeText(MainActivity.this, "SAVED", Toast.LENGTH_SHORT).show();
+//                            } catch (IOException e) {
+//                                e.printStackTrace();
+//                            }
+//                        }
+//                    }
+//                };
+//                builder.setMessage("Save current photo to Gallery?")
+//                        .setPositiveButton("Yes", onClickListener)
+//                        .setNegativeButton("No", onClickListener).show();
             }
         });
 
@@ -409,12 +438,55 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
     private void handleCropResult(Intent data) {
         final Uri resultUri = UCrop.getOutput(data);
         if (resultUri != null){
-            photoEditor.getSource().setImageUri(resultUri);
+            imageView.getSource().setImageURI(resultUri);
         }
         else {
             Toast.makeText(this,"Error retrieving cropped image", Toast.LENGTH_SHORT).show();
         }
 
+    }
+
+    private void openImage(String path) {
+        Intent intent = new Intent();
+        intent.setAction(Intent.ACTION_VIEW);
+        intent.setDataAndType(Uri.parse(path), "image/*");
+        startActivity(intent);
+    }
+
+    private void saveToGallery (){
+        Dexter.withActivity(this).withPermissions(Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                .withListener(new MultiplePermissionsListener() {
+                    @Override
+                    public void onPermissionsChecked(MultiplePermissionsReport report) {
+                        if (report.areAllPermissionsGranted()) {
+                            final String path = BitmapUtils.insertImage(getContentResolver(), finalBitmap, System.currentTimeMillis() + "_profile.jpg", null);
+                            if (!TextUtils.isEmpty(path)) {
+                                Snackbar snackbar = Snackbar
+                                        .make(coordinatorLayout, "Image saved to gallery!", Snackbar.LENGTH_LONG)
+                                        .setAction("OPEN", new View.OnClickListener() {
+                                            @Override
+                                            public void onClick(View view) {
+                                                openImage(path);
+                                            }
+                                        });
+
+                                snackbar.show();
+                            } else {
+                                Snackbar snackbar = Snackbar
+                                        .make(coordinatorLayout, "Unable to save image!", Snackbar.LENGTH_LONG);
+
+                                snackbar.show();
+                            }
+                        } else {
+                            Toast.makeText(getApplicationContext(), "Permissions are not granted!", Toast.LENGTH_SHORT).show();
+                        }
+                    }
+
+                    @Override
+                    public void onPermissionRationaleShouldBeShown(List<PermissionRequest> permissions, PermissionToken token) {
+                        token.continuePermissionRequest();
+                    }
+                }).check();
     }
 
     @Override

@@ -24,7 +24,7 @@ import java.util.List;
 
 public class BrushFragment extends BottomSheetDialogFragment implements ColorAdapter.ColorAdapterListener {
 
-    SeekBar seekBar_brush_size, seekBar_brush_color;
+    SeekBar seekBar_brush_size;
     RecyclerView recyclerView_color;
     ToggleButton btn_brush_state;
     ColorAdapter colorAdapter;
@@ -56,7 +56,6 @@ public class BrushFragment extends BottomSheetDialogFragment implements ColorAda
         // Inflate the layout for this fragment
         View itemView = inflater.inflate(R.layout.fragment_brush, container, false);
         seekBar_brush_size = (SeekBar) itemView.findViewById(R.id.seekbar_brush_size);
-        seekBar_brush_color = (SeekBar) itemView.findViewById(R.id.seekbar_brush_color);
         btn_brush_state = (ToggleButton) itemView.findViewById(R.id.btn_brush_state);
         recyclerView_color = (RecyclerView) itemView.findViewById(R.id.recycler_color);
         recyclerView_color.setHasFixedSize(true);
@@ -81,22 +80,7 @@ public class BrushFragment extends BottomSheetDialogFragment implements ColorAda
 
             }
         });
-        seekBar_brush_color.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
-                listener.onBrushColorChangedListener(i);
-            }
 
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {
-
-            }
-
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {
-
-            }
-        });
         btn_brush_state.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean b) {
