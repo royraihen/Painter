@@ -69,6 +69,7 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
     private Button cropBtn;
     private Button saveImage;
     private Button backBtn;
+    private Button undoBtn;
     private PhotoEditorView imageView;
     private PhotoEditor photoEditor;
     private Bitmap finalBitmap;
@@ -159,6 +160,7 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
         cropBtn = findViewById(R.id.crop);
         saveImage = findViewById(R.id.save);
         backBtn = findViewById(R.id.back);
+        undoBtn = findViewById(R.id.undo);
 
         photoEditor = new PhotoEditor.Builder(this, imageView).setPinchTextScalable(true).build();
 
@@ -217,6 +219,13 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
             @Override
             public void onClick(View view) {
                 startCrop(selectedImageUri);
+            }
+        });
+
+        undoBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                photoEditor.undo();
             }
         });
 
