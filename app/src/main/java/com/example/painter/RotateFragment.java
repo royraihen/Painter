@@ -18,7 +18,7 @@ import com.example.painter.Interface.TextFragmentListener;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 
 
-public class RotateFragment extends BottomSheetDialogFragment implements ColorAdapter.ColorAdapterListener {
+public class RotateFragment extends BottomSheetDialogFragment {
 
     SeekBar seekBar_rotate;
 
@@ -73,8 +73,4 @@ public class RotateFragment extends BottomSheetDialogFragment implements ColorAd
         return view;
     }
 
-    @Override
-    public void onColorSelected(int color) {
-        color=3;
-    }
 }
