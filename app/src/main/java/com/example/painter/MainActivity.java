@@ -1,67 +1,48 @@
 package com.example.painter;
 
-import androidx.annotation.NonNull;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.coordinatorlayout.widget.CoordinatorLayout;
-
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.ActivityManager;
-import android.app.AlertDialog;
 import android.app.ProgressDialog;
-import android.content.DialogInterface;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.Color;
-import android.graphics.Matrix;
-import android.graphics.Paint;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.StrictMode;
 import android.provider.MediaStore;
-import android.text.TextUtils;
 import android.util.Log;
-import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
-import android.widget.ImageView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+
 import com.example.painter.Interface.BrushFragmentListener;
+import com.example.painter.Interface.RotateFragmentListener;
 import com.example.painter.Interface.TextFragmentListener;
-import com.google.android.material.snackbar.Snackbar;
-import com.karumi.dexter.Dexter;
-import com.karumi.dexter.MultiplePermissionsReport;
-import com.karumi.dexter.PermissionToken;
-import com.karumi.dexter.listener.PermissionRequest;
-import com.karumi.dexter.listener.multi.MultiplePermissionsListener;
 import com.yalantis.ucrop.UCrop;
 
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URI;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.List;
+import java.util.Stack;
 import java.util.UUID;
 
 import ja.burhanrashid52.photoeditor.PhotoEditor;
 import ja.burhanrashid52.photoeditor.PhotoEditorView;
 
-/*
- * TODO:
- *  FIX SAVE
- * */
 
-public class MainActivity extends AppCompatActivity implements BrushFragmentListener, TextFragmentListener {
+public class MainActivity extends AppCompatActivity implements BrushFragmentListener, TextFragmentListener, RotateFragmentListener {
     private Button selectImageBtn;
     private Button bwBtn;
     private Button textBtn;
@@ -70,17 +51,14 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
     private Button saveImage;
     private Button backBtn;
     private Button undoBtn;
+    private Button rotateBtn;
     private PhotoEditorView imageView;
     private PhotoEditor photoEditor;
-    private Bitmap finalBitmap;
-    private CoordinatorLayout coordinatorLayout;
 
-
-    float downx = 0, downy = 0;
-    float upx = 0, upy = 0;
-    Paint paint;
-    Matrix matrix;
-
+    private Stack<Uri> cropStack = new Stack<Uri>();
+    int undo_it = 0;
+    int undo_array[] = new int[200];
+    private int rotate_angle;
 
     private final static int REQUEST_PERMISSIONS = 111;
     private final static int REQUEST_PICK_IMAGE = 112;
@@ -92,11 +70,12 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
     };
 
     private Uri imageUri;
-    private Uri selectedImageUri;
     private static final String appID = "photoEditor";
 
 
     private static boolean editMode = false;
+    private static boolean backWasPressed=false;
+    //private boolean wasCropped = false;
 
     static {
         System.loadLibrary("NativeImageProcessor");
@@ -161,6 +140,7 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
         saveImage = findViewById(R.id.save);
         backBtn = findViewById(R.id.back);
         undoBtn = findViewById(R.id.undo);
+        rotateBtn = findViewById(R.id.rotate);
 
         photoEditor = new PhotoEditor.Builder(this, imageView).setPinchTextScalable(true).build();
 
@@ -198,7 +178,6 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
         bwBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-
                 photoEditor.setBrushDrawingMode(true);
                 BrushFragment brushFragment = BrushFragment.getInstace();
                 brushFragment.setListener(MainActivity.this);
@@ -211,66 +190,92 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
             public void onClick(View view) {
                 TextFragment textFragment = TextFragment.getInstance();
                 textFragment.setListener(MainActivity.this);
-                textFragment.show(getSupportFragmentManager(),textFragment.getTag());
+                textFragment.show(getSupportFragmentManager(), textFragment.getTag());
             }
         });
+
+        rotateBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                RotateFragment rotateFragment = RotateFragment.getInstance();
+                if(backWasPressed){
+                    backWasPressed=false;
+                    rotateFragment.seekBar_rotate.setProgress(0);
+                }
+                rotateFragment.setListener(MainActivity.this);
+                rotateFragment.show(getSupportFragmentManager(),rotateFragment.getTag());
+            }
+        });
+
 
         cropBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                startCrop(selectedImageUri);
+                undo_array[undo_it++] = 1;
+                //undo_it++;
+                cropStack.push(imageUri);
+                startCrop(imageUri);
             }
         });
 
         undoBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                photoEditor.undo();
+                System.out.println(undo_array);
+                if (undo_it > 0) undo_it--;
+                if (undo_array[undo_it] == 1) {
+                    imageView.getSource().setImageURI(cropStack.pop());
+                } else
+                    photoEditor.undo();
             }
         });
 
+        imageView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                System.out.println("it size=" + undo_it + " array=" + undo_array.toString());
+
+                undo_it++;
+                undo_array[undo_it] = 0;
+            }
+        });
+
+
         saveImage.setOnClickListener(new View.OnClickListener() {
+            Uri mSaveImageUri;
+
             @SuppressLint("MissingPermission")
             @Override
             public void onClick(View view) {
-                String photoDir = Environment.getExternalStorageDirectory() + "/" + Environment.DIRECTORY_DCIM + "/";
-                photoEditor.saveAsFile(photoDir, new PhotoEditor.OnSaveListener() {
+                final File file = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES),
+                        System.currentTimeMillis() + ".png");
+
+                photoEditor.saveAsFile(file.getAbsolutePath(), new PhotoEditor.OnSaveListener() {
                     @Override
                     public void onSuccess(@NonNull String imagePath) {
-                        Log.e("PhotoEditor","Image Saved Successfully");
-
+                        imageView.getSource().setImageURI(mSaveImageUri);
+                        galleryAddPic(MainActivity.this, file.getAbsolutePath());
+                        toasting("Picture Saved");
+                        imageView.setRotation(0);
+                        backWasPressed=true;
+                        onBackPressed();
                     }
+
                     @Override
                     public void onFailure(@NonNull Exception exception) {
-                        Log.e("PhotoEditor","Failed to save Image");
+                        Log.e("E", "FAILED");
+                        toasting("Saving Failed");
                     }
                 });
-//                final AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
-//                final DialogInterface.OnClickListener onClickListener = new DialogInterface.OnClickListener() {
-//                    @Override
-//                    public void onClick(DialogInterface dialogInterface, int i) {
-//                        if (i == DialogInterface.BUTTON_POSITIVE) {
-//                            final File outFile = createImageFile();
-//                            try (FileOutputStream out = new FileOutputStream(outFile)) {
-//                                bitmap.compress(Bitmap.CompressFormat.JPEG, 100, out);
-//                                imageUri = Uri.parse("file://" + outFile.getAbsolutePath());
-//                                sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, imageUri));
-//                                Toast.makeText(MainActivity.this, "SAVED", Toast.LENGTH_SHORT).show();
-//                            } catch (IOException e) {
-//                                e.printStackTrace();
-//                            }
-//                        }
-//                    }
-//                };
-//                builder.setMessage("Save current photo to Gallery?")
-//                        .setPositiveButton("Yes", onClickListener)
-//                        .setNegativeButton("No", onClickListener).show();
+
             }
         });
 
         backBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                while (!cropStack.empty())
+                    cropStack.pop();
                 findViewById(R.id.editScreen).setVisibility(View.GONE);
                 findViewById(R.id.welcomeScreen).setVisibility(View.VISIBLE);
                 editMode = false;
@@ -280,9 +285,21 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
 
     }
 
-    private void startCrop(Uri selectedImageUri) {
+    private void toasting(String msg) {
+        Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_SHORT).show();
+    }
+
+    private static void galleryAddPic(Context context, String imagePath) {
+        Intent mediaScanIntent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
+        File f = new File(imagePath);
+        Uri contentUri = Uri.fromFile(f);
+        mediaScanIntent.setData(contentUri);
+        context.sendBroadcast(mediaScanIntent);
+    }
+
+    private void startCrop(Uri imageUri) {
         String dest = new StringBuilder(UUID.randomUUID().toString()).append(".jpg").toString();
-        UCrop uCrop = UCrop.of(selectedImageUri, Uri.fromFile(new File(getCacheDir(),dest)));
+        UCrop uCrop = UCrop.of(imageUri, Uri.fromFile(new File(getCacheDir(), dest)));
 
         uCrop.start(MainActivity.this);
     }
@@ -290,6 +307,10 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
 
     public void onBackPressed() {
         if (editMode) {
+            while (!cropStack.empty())
+                cropStack.pop();
+            imageView.setRotation(0);
+            backWasPressed=true;
             findViewById(R.id.editScreen).setVisibility(View.GONE);
             findViewById(R.id.welcomeScreen).setVisibility(View.VISIBLE);
             editMode = false;
@@ -313,33 +334,6 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
     private int[] pixels;
     private int pixCount = 0;
 
-    public boolean onTouch(View v, MotionEvent event) {
-        int action = event.getAction();
-        switch (action) {
-            case MotionEvent.ACTION_DOWN:
-                downx = event.getX();
-                downy = event.getY();
-                break;
-            case MotionEvent.ACTION_MOVE:
-                upx = event.getX();
-                upy = event.getY();
-                imageView.invalidate();
-                downx = upx;
-                downy = upy;
-                break;
-            case MotionEvent.ACTION_UP:
-                upx = event.getX();
-                upy = event.getY();
-                imageView.invalidate();
-                break;
-            case MotionEvent.ACTION_CANCEL:
-                break;
-            default:
-                break;
-        }
-        return true;
-    }
-
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -362,95 +356,83 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
             return;
         } else if (requestCode == REQUEST_PICK_IMAGE) {
             imageUri = data.getData();
-            selectedImageUri = data.getData();
-        } else if(requestCode == UCrop.REQUEST_CROP){
+        } else if (requestCode == UCrop.REQUEST_CROP) {
             handleCropResult(data);
+            //imageView.getSource().setImageURI(tempUri);
         }
-        if(resultCode == UCrop.RESULT_ERROR){
+        if (resultCode == UCrop.RESULT_ERROR) {
             handleCropError(data);
-        }
 
-        final ProgressDialog dialog = ProgressDialog.show(MainActivity.this, "Loading",
-                "Wait", true);
+        }
+        final ProgressDialog dialog = ProgressDialog.show(MainActivity.this, "Loading", "Wait", true);
 
         editMode = true;
 
         findViewById(R.id.welcomeScreen).setVisibility(View.GONE);
         findViewById(R.id.editScreen).setVisibility(View.VISIBLE);
 
-        new Thread() {
-            public void run() {
-                bitmap = null;
-                final BitmapFactory.Options options = new BitmapFactory.Options();
-                options.inBitmap = bitmap;
-                options.inJustDecodeBounds = true;
-                try (InputStream inputStream = getContentResolver().openInputStream(imageUri)) {
-                    bitmap = BitmapFactory.decodeStream(inputStream, null, options);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-                options.inJustDecodeBounds = false;
-                width = options.outWidth;
-                height = options.outHeight;
-                int resizeScale = 1;
-                if (width > MAX_PIX_COUNT) {
-                    resizeScale = width / MAX_PIX_COUNT;
-                } else if (height > MAX_PIX_COUNT) {
-                    resizeScale = height / MAX_PIX_COUNT;
-                }
-                if (width / resizeScale > MAX_PIX_COUNT || height / resizeScale > MAX_PIX_COUNT) {
-                    resizeScale++;
-                }
-                options.inSampleSize = resizeScale;
-                InputStream inputStream = null;
-                try {
-                    inputStream = getContentResolver().openInputStream(imageUri);
-                } catch (FileNotFoundException e) {
-                    e.printStackTrace();
-                    recreate();
-                    return;
-                }
-                bitmap = BitmapFactory.decodeStream(inputStream, null, options);
 
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        imageView.getSource().setImageBitmap(bitmap);
-                        dialog.cancel();
+        bitmap = null;
+        final BitmapFactory.Options options = new BitmapFactory.Options();
+        options.inBitmap = bitmap;
+        options.inJustDecodeBounds = true;
+        try (InputStream inputStream = getContentResolver().openInputStream(imageUri)) {
+            bitmap = BitmapFactory.decodeStream(inputStream, null, options);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        options.inJustDecodeBounds = false;
+        width = options.outWidth;
+        height = options.outHeight;
+        int resizeScale = 1;
+        if (width > MAX_PIX_COUNT) {
+            resizeScale = width / MAX_PIX_COUNT;
+        } else if (height > MAX_PIX_COUNT) {
+            resizeScale = height / MAX_PIX_COUNT;
+        }
+        if (width / resizeScale > MAX_PIX_COUNT || height / resizeScale > MAX_PIX_COUNT) {
+            resizeScale++;
+        }
+        options.inSampleSize = resizeScale;
+        InputStream inputStream = null;
+        try {
+            inputStream = getContentResolver().openInputStream(imageUri);
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+            recreate();
+            return;
+        }
+        bitmap = BitmapFactory.decodeStream(inputStream, null, options);
+        imageView.getSource().setImageBitmap(bitmap);
+        dialog.cancel();
 
-                    }
-                });
-                width = bitmap.getWidth();
-                height = bitmap.getHeight();
-                bitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true);
+        width = bitmap.getWidth();
+        height = bitmap.getHeight();
+        bitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true);
 
-                pixCount = width * height;
-                pixels = new int[pixCount];
-                bitmap.getPixels(pixels, 0, width, 0, 0, width, height);
+        pixCount = width * height;
+        pixels = new int[pixCount];
+        bitmap.getPixels(pixels, 0, width, 0, 0, width, height);
 
-
-            }
-        }.start();
 
     }
 
     private void handleCropError(Intent data) {
         final Throwable cropError = UCrop.getError(data);
-        if(cropError != null){
-            Toast.makeText(this,""+cropError.getMessage(),Toast.LENGTH_SHORT).show();
-        }
-        else{
-            Toast.makeText(this,"Unexpected Error",Toast.LENGTH_SHORT).show();
+        if (cropError != null) {
+            Toast.makeText(this, "" + cropError.getMessage(), Toast.LENGTH_SHORT).show();
+        } else {
+            Toast.makeText(this, "Unexpected Error", Toast.LENGTH_SHORT).show();
         }
     }
 
     private void handleCropResult(Intent data) {
-        final Uri resultUri = UCrop.getOutput(data);
-        if (resultUri != null){
-            imageView.getSource().setImageURI(resultUri);
-        }
-        else {
-            Toast.makeText(this,"Error retrieving cropped image", Toast.LENGTH_SHORT).show();
+        //final Uri resultUri = UCrop.getOutput(data);
+        imageUri = UCrop.getOutput(data);
+        if (imageUri != null) {
+            imageView.getSource().setImageURI(imageUri);
+        } else {
+            Toast.makeText(this, "Error retrieving cropped image", Toast.LENGTH_SHORT).show();
         }
 
     }
@@ -462,41 +444,7 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
         startActivity(intent);
     }
 
-    private void saveToGallery (){
-        Dexter.withActivity(this).withPermissions(Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                .withListener(new MultiplePermissionsListener() {
-                    @Override
-                    public void onPermissionsChecked(MultiplePermissionsReport report) {
-                        if (report.areAllPermissionsGranted()) {
-                            final String path = BitmapUtils.insertImage(getContentResolver(), finalBitmap, System.currentTimeMillis() + "_profile.jpg", null);
-                            if (!TextUtils.isEmpty(path)) {
-                                Snackbar snackbar = Snackbar
-                                        .make(coordinatorLayout, "Image saved to gallery!", Snackbar.LENGTH_LONG)
-                                        .setAction("OPEN", new View.OnClickListener() {
-                                            @Override
-                                            public void onClick(View view) {
-                                                openImage(path);
-                                            }
-                                        });
 
-                                snackbar.show();
-                            } else {
-                                Snackbar snackbar = Snackbar
-                                        .make(coordinatorLayout, "Unable to save image!", Snackbar.LENGTH_LONG);
-
-                                snackbar.show();
-                            }
-                        } else {
-                            Toast.makeText(getApplicationContext(), "Permissions are not granted!", Toast.LENGTH_SHORT).show();
-                        }
-                    }
-
-                    @Override
-                    public void onPermissionRationaleShouldBeShown(List<PermissionRequest> permissions, PermissionToken token) {
-                        token.continuePermissionRequest();
-                    }
-                }).check();
-    }
 
     @Override
     public void onBrushSizeChangedListener(float size) {
@@ -510,14 +458,29 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
 
     @Override
     public void onBrushStateChangedListener(boolean isEraser) {
-        if (isEraser)
+        if (isEraser) {
+            undo_array[undo_it++] = 0;
             photoEditor.brushEraser();
-        else
+
+        } else {
+            undo_array[undo_it++] = 0;
             photoEditor.setBrushDrawingMode(true);
+
+        }
     }
 
     @Override
     public void onTextButtonClicked(String actualText, int color) {
+        undo_array[undo_it++] = 0;
         photoEditor.addText(actualText, color);
+    }
+
+    @Override
+    public void onRotateAngleChangedListener(int angle) {
+        if(backWasPressed){
+            angle=0;
+            backWasPressed=false;
+        }
+        imageView.setRotation(angle);
     }
 }
