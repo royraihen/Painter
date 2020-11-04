@@ -25,6 +25,11 @@
             android:layout_height="100dp"
             android:text="Take Picture"
             android:textAllCaps="false" />
+        <ImageView
+            android:id="@+id/testPic"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:visibility="gone"/>
 
 
     </LinearLayout>
@@ -56,6 +61,7 @@
                 android:text="Back"/>
 
             <Button
+                android:visibility="gone"
                 android:id="@+id/rotate"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"

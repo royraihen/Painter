@@ -19,6 +19,7 @@ import android.provider.MediaStore;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -27,12 +28,14 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.example.painter.Interface.BrushFragmentListener;
 import com.example.painter.Interface.RotateFragmentListener;
 import com.example.painter.Interface.TextFragmentListener;
+import com.theartofdev.edmodo.cropper.CropImage;
 import com.yalantis.ucrop.UCrop;
 
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Stack;
@@ -43,6 +46,7 @@ import ja.burhanrashid52.photoeditor.PhotoEditorView;
 
 
 public class MainActivity extends AppCompatActivity implements BrushFragmentListener, TextFragmentListener, RotateFragmentListener {
+    private File testFile = new File("cache/cropped6182308419473422355.jpg");
     private Button selectImageBtn;
     private Button bwBtn;
     private Button textBtn;
@@ -74,19 +78,36 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
 
 
     private static boolean editMode = false;
-    private static boolean backWasPressed=false;
+    private static boolean backWasPressed = false;
     //private boolean wasCropped = false;
 
-    static {
-        System.loadLibrary("NativeImageProcessor");
+//    static {
+//        System.loadLibrary("NativeImageProcessor");
+//    }
+    private boolean checkFile(File f){
+        if(f==null){
+            System.out.println("NOT EXIST");
+            return false;
+        }
+        else{
+            System.out.println("EXIST");
+        }
+        return true;
     }
-
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
+        testFile = new File("data/user/0/com.example.painter/cache/cropped2967850378899401309.jpg");
+        if(checkFile(testFile)==true){
+            ImageView iv = findViewById(R.id.testPic);
+            iv.setVisibility(View.VISIBLE);
+            String t = testFile.getAbsolutePath();
+            System.out.println(t);
+            Uri uri = Uri.parse(t);
+            iv.setImageURI(uri);
+        }
         init();
 
 
@@ -198,12 +219,12 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
             @Override
             public void onClick(View view) {
                 RotateFragment rotateFragment = RotateFragment.getInstance();
-                if(backWasPressed){
-                    backWasPressed=false;
+                if (backWasPressed) {
+                    backWasPressed = false;
                     rotateFragment.seekBar_rotate.setProgress(0);
                 }
                 rotateFragment.setListener(MainActivity.this);
-                rotateFragment.show(getSupportFragmentManager(),rotateFragment.getTag());
+                rotateFragment.show(getSupportFragmentManager(), rotateFragment.getTag());
             }
         });
 
@@ -214,7 +235,10 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
                 undo_array[undo_it++] = 1;
                 //undo_it++;
                 cropStack.push(imageUri);
-                startCrop(imageUri);
+                System.out.println(imageUri);
+                //startCrop(imageUri);
+                CropImage.activity(imageUri)
+                        .start(MainActivity.this);
             }
         });
 
@@ -257,7 +281,7 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
                         galleryAddPic(MainActivity.this, file.getAbsolutePath());
                         toasting("Picture Saved");
                         imageView.setRotation(0);
-                        backWasPressed=true;
+                        backWasPressed = true;
                         onBackPressed();
                     }
 
@@ -310,7 +334,7 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
             while (!cropStack.empty())
                 cropStack.pop();
             imageView.setRotation(0);
-            backWasPressed=true;
+            backWasPressed = true;
             findViewById(R.id.editScreen).setVisibility(View.GONE);
             findViewById(R.id.welcomeScreen).setVisibility(View.VISIBLE);
             editMode = false;
@@ -359,6 +383,17 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
         } else if (requestCode == UCrop.REQUEST_CROP) {
             handleCropResult(data);
             //imageView.getSource().setImageURI(tempUri);
+        } else if (requestCode == CropImage.CROP_IMAGE_ACTIVITY_REQUEST_CODE) {
+            CropImage.ActivityResult result = CropImage.getActivityResult(data);
+            if (resultCode == RESULT_OK) {
+                toasting("SUCCESS");
+                imageUri = result.getUri();
+                System.out.println(imageUri);
+                imageView.getSource().setImageURI(imageUri);
+            } else if (resultCode == CropImage.CROP_IMAGE_ACTIVITY_RESULT_ERROR_CODE) {
+                toasting("error croping new");
+                Exception error = result.getError();
+            }
         }
         if (resultCode == UCrop.RESULT_ERROR) {
             handleCropError(data);
@@ -417,6 +452,12 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
 
     }
 
+    private void testCrop(CropImage.ActivityResult result){
+        imageUri = result.getUri();
+        imageView.getSource().setImageURI(imageUri);
+
+    }
+
     private void handleCropError(Intent data) {
         final Throwable cropError = UCrop.getError(data);
         if (cropError != null) {
@@ -443,7 +484,6 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
         intent.setDataAndType(Uri.parse(path), "image/*");
         startActivity(intent);
     }
-
 
 
     @Override
@@ -477,10 +517,12 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
 
     @Override
     public void onRotateAngleChangedListener(int angle) {
-        if(backWasPressed){
-            angle=0;
-            backWasPressed=false;
+        if (backWasPressed) {
+            angle = 0;
+            backWasPressed = false;
         }
         imageView.setRotation(angle);
     }
+
+
 }
