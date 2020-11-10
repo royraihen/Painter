@@ -10,7 +10,6 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -20,7 +19,6 @@ import android.provider.MediaStore;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
-import android.widget.ImageView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -36,40 +34,26 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URI;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.Stack;
-import java.util.UUID;
 
 import ja.burhanrashid52.photoeditor.PhotoEditor;
 import ja.burhanrashid52.photoeditor.PhotoEditorView;
 
 /*
 * TODO:
-*  - fix bug of temp images being saved on device
 *  - implement fully working undo mechanic which will include: native API undo & image Uri stack
-*  - clear unnecessary code
 * */
 
 public class MainActivity extends AppCompatActivity implements BrushFragmentListener, TextFragmentListener, RotateFragmentListener {
-    private File testFile = new File("cache/cropped6182308419473422355.jpg");
-    private Button selectImageBtn;
-    private Button bwBtn;
-    private Button textBtn;
-    private Button takePictureBtn;
-    private Button cropBtn;
-    private Button saveImage;
-    private Button backBtn;
-    private Button undoBtn;
-    private Button rotateBtn;
     private PhotoEditorView imageView;
     private PhotoEditor photoEditor;
 
-    private Stack<Uri> cropStack = new Stack<Uri>();
+    private final Stack<Uri> cropStack = new Stack<>();
     int undo_it = 0;
-    int undo_array[] = new int[200];
-    private int rotate_angle;
+    int[] undo_array = new int[200];
 
     private final static int REQUEST_PERMISSIONS = 111;
     private final static int REQUEST_PICK_IMAGE = 112;
@@ -89,28 +73,17 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
 
     public void readFolder(){
 
-        String path = "/data/user/0/com.example.painter/cache";
+        @SuppressLint("SdCardPath") String path = "/data/user/0/com.example.painter/cache";
         Log.d("Files", "Path: " + path);
         File directory = new File(path);
         File[] files = directory.listFiles();
+        assert files != null;
         Log.d("Files", "Size: "+ files.length);
-        for (int i = 0; i < files.length; i++)
-        {
-            Log.d("Files", "FileName:" + files[i].getName());
-            files[i].delete();
+        for (File file : files) {
+            Log.d("Files", "FileName:" + file.getName());
+            file.delete();
             System.out.println("DELETED");
         }
-    }
-
-    private boolean checkFile(File f){
-        if(f==null){
-            System.out.println("NOT EXIST");
-            return false;
-        }
-        else{
-            System.out.println("EXIST");
-        }
-        return true;
     }
 
     @Override
@@ -118,22 +91,7 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         readFolder();
-        testFile = new File("data/user/0/com.example.painter/cache/cropped5063279485358004269.jpg");
-        if(checkFile(testFile)==true){
-            ImageView iv = findViewById(R.id.testPic);
-            iv.setVisibility(View.VISIBLE);
-            String t = testFile.getAbsolutePath();
-            System.out.println(t);
-            Uri uri = Uri.parse(t);
-            iv.setImageURI(uri);
-        }
-        else{
-            ImageView iv = findViewById(R.id.testPic);
-            iv.setBackgroundColor(Color.WHITE);
-        }
         init();
-
-
     }
 
     @SuppressLint("NewAPI")
@@ -155,7 +113,7 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
     }
 
     @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResult) {
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResult) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResult);
         if (requestCode == REQUEST_PERMISSIONS && grantResult.length > 0) {
             if (permissions()) {
@@ -175,116 +133,91 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
             findViewById(R.id.takePictureBtn).setVisibility(View.GONE);
         }
 
-        selectImageBtn = findViewById(R.id.selectImageBtn);
-        takePictureBtn = findViewById(R.id.takePictureBtn);
+        Button selectImageBtn = findViewById(R.id.selectImageBtn);
+        Button takePictureBtn = findViewById(R.id.takePictureBtn);
         imageView = findViewById(R.id.IV);
-        bwBtn = findViewById(R.id.bw);
-        textBtn = findViewById(R.id.text);
-        cropBtn = findViewById(R.id.crop);
-        saveImage = findViewById(R.id.save);
-        backBtn = findViewById(R.id.back);
-        undoBtn = findViewById(R.id.undo);
-        rotateBtn = findViewById(R.id.rotate);
+        Button bwBtn = findViewById(R.id.bw);
+        Button textBtn = findViewById(R.id.text);
+        Button cropBtn = findViewById(R.id.crop);
+        Button saveImage = findViewById(R.id.save);
+        Button backBtn = findViewById(R.id.back);
+        Button undoBtn = findViewById(R.id.undo);
+        Button rotateBtn = findViewById(R.id.rotate);
 
         photoEditor = new PhotoEditor.Builder(this, imageView).setPinchTextScalable(true).build();
 
 
-        selectImageBtn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                final Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-                intent.setType("image/*");
-                final Intent pickIntent = new Intent(Intent.ACTION_PICK);
-                pickIntent.setDataAndType(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, "image/*");
-                final Intent chooser = Intent.createChooser(intent, "Select Image");
-                startActivityForResult(chooser, REQUEST_PICK_IMAGE);
+        selectImageBtn.setOnClickListener(view -> {
+            final Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+            intent.setType("image/*");
+            final Intent pickIntent = new Intent(Intent.ACTION_PICK);
+            pickIntent.setDataAndType(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, "image/*");
+            final Intent chooser = Intent.createChooser(intent, "Select Image");
+            startActivityForResult(chooser, REQUEST_PICK_IMAGE);
+        });
+
+        takePictureBtn.setOnClickListener(view -> {
+            final Intent takePicIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+            if (takePicIntent.resolveActivity(getPackageManager()) != null) {
+                //create a file for the photo that was just taken
+                final File photo = createImageFile();
+                imageUri = Uri.fromFile(photo);
+                final SharedPreferences preferences = getSharedPreferences(appID, 0);
+                preferences.edit().putString("path", photo.getAbsolutePath()).apply();
+                takePicIntent.putExtra(MediaStore.EXTRA_OUTPUT, imageUri);
+                startActivityForResult(takePicIntent, REQUEST_IMAGE_CAPTURE);
+            } else {
+                Toast.makeText(MainActivity.this, "Camera not compatible", Toast.LENGTH_SHORT).show();
             }
         });
 
-        takePictureBtn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                final Intent takePicIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-                if (takePicIntent.resolveActivity(getPackageManager()) != null) {
-                    //create a file for the photo that was just taken
-                    final File photo = createImageFile();
-                    imageUri = Uri.fromFile(photo);
-                    final SharedPreferences preferences = getSharedPreferences(appID, 0);
-                    preferences.edit().putString("path", photo.getAbsolutePath()).apply();
-                    takePicIntent.putExtra(MediaStore.EXTRA_OUTPUT, imageUri);
-                    startActivityForResult(takePicIntent, REQUEST_IMAGE_CAPTURE);
-                } else {
-                    Toast.makeText(MainActivity.this, "Camera not compatible", Toast.LENGTH_SHORT).show();
-                }
-            }
+        bwBtn.setOnClickListener(view -> {
+            photoEditor.setBrushDrawingMode(true);
+            BrushFragment brushFragment = BrushFragment.getInstace();
+            brushFragment.setListener(MainActivity.this);
+            brushFragment.show(getSupportFragmentManager(), brushFragment.getTag());
         });
 
-        bwBtn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                photoEditor.setBrushDrawingMode(true);
-                BrushFragment brushFragment = BrushFragment.getInstace();
-                brushFragment.setListener(MainActivity.this);
-                brushFragment.show(getSupportFragmentManager(), brushFragment.getTag());
-            }
+        textBtn.setOnClickListener(view -> {
+            TextFragment textFragment = TextFragment.getInstance();
+            textFragment.setListener(MainActivity.this);
+            textFragment.show(getSupportFragmentManager(), textFragment.getTag());
         });
 
-        textBtn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                TextFragment textFragment = TextFragment.getInstance();
-                textFragment.setListener(MainActivity.this);
-                textFragment.show(getSupportFragmentManager(), textFragment.getTag());
+        rotateBtn.setOnClickListener(view -> {
+            RotateFragment rotateFragment = RotateFragment.getInstance();
+            if (backWasPressed) {
+                backWasPressed = false;
+                rotateFragment.seekBar_rotate.setProgress(0);
             }
-        });
-
-        rotateBtn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                RotateFragment rotateFragment = RotateFragment.getInstance();
-                if (backWasPressed) {
-                    backWasPressed = false;
-                    rotateFragment.seekBar_rotate.setProgress(0);
-                }
-                rotateFragment.setListener(MainActivity.this);
-                rotateFragment.show(getSupportFragmentManager(), rotateFragment.getTag());
-            }
+            rotateFragment.setListener(MainActivity.this);
+            rotateFragment.show(getSupportFragmentManager(), rotateFragment.getTag());
         });
 
 
-        cropBtn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                undo_array[undo_it++] = 1;
-                //undo_it++;
-                cropStack.push(imageUri);
-                System.out.println(imageUri);
-                //startCrop(imageUri);
-                CropImage.activity(imageUri)
-                        .start(MainActivity.this);
-            }
+        cropBtn.setOnClickListener(view -> {
+            undo_array[undo_it++] = 1;
+            //undo_it++;
+            cropStack.push(imageUri);
+            System.out.println(imageUri);
+            //startCrop(imageUri);
+            CropImage.activity(imageUri)
+                    .start(MainActivity.this);
         });
 
-        undoBtn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                System.out.println(undo_array);
-                if (undo_it > 0) undo_it--;
-                if (undo_array[undo_it] == 1) {
-                    imageView.getSource().setImageURI(cropStack.pop());
-                } else
-                    photoEditor.undo();
-            }
+        undoBtn.setOnClickListener(view -> {
+            if (undo_it > 0) undo_it--;
+            if (undo_array[undo_it] == 1) {
+                imageView.getSource().setImageURI(cropStack.pop());
+            } else
+                photoEditor.undo();
         });
 
-        imageView.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                System.out.println("it size=" + undo_it + " array=" + undo_array.toString());
+        imageView.setOnClickListener(view -> {
+            System.out.println("it size=" + undo_it + " array=" + Arrays.toString(undo_array));
 
-                undo_it++;
-                undo_array[undo_it] = 0;
-            }
+            undo_it++;
+            undo_array[undo_it] = 0;
         });
 
 
@@ -318,15 +251,12 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
             }
         });
 
-        backBtn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                while (!cropStack.empty())
-                    cropStack.pop();
-                findViewById(R.id.editScreen).setVisibility(View.GONE);
-                findViewById(R.id.welcomeScreen).setVisibility(View.VISIBLE);
-                editMode = false;
-            }
+        backBtn.setOnClickListener(view -> {
+            while (!cropStack.empty())
+                cropStack.pop();
+            findViewById(R.id.editScreen).setVisibility(View.GONE);
+            findViewById(R.id.welcomeScreen).setVisibility(View.VISIBLE);
+            editMode = false;
         });
 
 
@@ -342,13 +272,6 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
         Uri contentUri = Uri.fromFile(f);
         mediaScanIntent.setData(contentUri);
         context.sendBroadcast(mediaScanIntent);
-    }
-
-    private void startCrop(Uri imageUri) {
-        String dest = new StringBuilder(UUID.randomUUID().toString()).append(".jpg").toString();
-        UCrop uCrop = UCrop.of(imageUri, Uri.fromFile(new File(getCacheDir(), dest)));
-
-        uCrop.start(MainActivity.this);
     }
 
     private void removeStackFile(){
@@ -384,19 +307,13 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
     }
 
     private File createImageFile() {
-        final String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+        @SuppressLint("SimpleDateFormat") final String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
         final File dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES);
         final String filename = "/JPEG_" + timeStamp + ".jpg";
         return new File(dir + filename);
     }
 
-    private Bitmap bitmap;
-    private int width = 0;
-    private int height = 0;
     private static final int MAX_PIX_COUNT = 2048;
-
-    private int[] pixels;
-    private int pixCount = 0;
 
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
@@ -428,19 +345,10 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
             //imageView.getSource().setImageURI(tempUri);
         } else if (requestCode == CropImage.CROP_IMAGE_ACTIVITY_REQUEST_CODE) {
             CropImage.ActivityResult result = CropImage.getActivityResult(data);
-            if (resultCode == RESULT_OK) {
-                toasting("SUCCESS");
-                imageUri = result.getUri();
-                System.out.println(imageUri);
-                imageView.getSource().setImageURI(imageUri);
-            } else if (resultCode == CropImage.CROP_IMAGE_ACTIVITY_RESULT_ERROR_CODE) {
-                toasting("error croping new");
-                Exception error = result.getError();
-            }
-        }
-        if (resultCode == UCrop.RESULT_ERROR) {
-            handleCropError(data);
-
+            toasting("SUCCESS");
+            imageUri = result.getUri();
+            System.out.println(imageUri);
+            imageView.getSource().setImageURI(imageUri);
         }
         final ProgressDialog dialog = ProgressDialog.show(MainActivity.this, "Loading", "Wait", true);
 
@@ -450,18 +358,13 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
         findViewById(R.id.editScreen).setVisibility(View.VISIBLE);
 
 
-        bitmap = null;
+        Bitmap bitmap = null;
         final BitmapFactory.Options options = new BitmapFactory.Options();
         options.inBitmap = bitmap;
         options.inJustDecodeBounds = true;
-        try (InputStream inputStream = getContentResolver().openInputStream(imageUri)) {
-            bitmap = BitmapFactory.decodeStream(inputStream, null, options);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
         options.inJustDecodeBounds = false;
-        width = options.outWidth;
-        height = options.outHeight;
+        int width = options.outWidth;
+        int height = options.outHeight;
         int resizeScale = 1;
         if (width > MAX_PIX_COUNT) {
             resizeScale = width / MAX_PIX_COUNT;
@@ -472,7 +375,7 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
             resizeScale++;
         }
         options.inSampleSize = resizeScale;
-        InputStream inputStream = null;
+        InputStream inputStream;
         try {
             inputStream = getContentResolver().openInputStream(imageUri);
         } catch (FileNotFoundException e) {
@@ -488,8 +391,8 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
         height = bitmap.getHeight();
         bitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true);
 
-        pixCount = width * height;
-        pixels = new int[pixCount];
+        int pixCount = width * height;
+        int[] pixels = new int[pixCount];
         bitmap.getPixels(pixels, 0, width, 0, 0, width, height);
 
 
@@ -520,14 +423,6 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
         }
 
     }
-
-    private void openImage(String path) {
-        Intent intent = new Intent();
-        intent.setAction(Intent.ACTION_VIEW);
-        intent.setDataAndType(Uri.parse(path), "image/*");
-        startActivity(intent);
-    }
-
 
     @Override
     public void onBrushSizeChangedListener(float size) {
