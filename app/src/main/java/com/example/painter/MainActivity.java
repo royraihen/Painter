@@ -28,11 +28,9 @@ import com.example.painter.Interface.BrushFragmentListener;
 import com.example.painter.Interface.RotateFragmentListener;
 import com.example.painter.Interface.TextFragmentListener;
 import com.theartofdev.edmodo.cropper.CropImage;
-import com.yalantis.ucrop.UCrop;
 
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.IOException;
 import java.io.InputStream;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
@@ -71,9 +69,9 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
     private static boolean editMode = false;
     private static boolean backWasPressed = false;
 
-    public void readFolder(){
-
-        @SuppressLint("SdCardPath") String path = "/data/user/0/com.example.painter/cache";
+    public void readFolder(){   //runs on: onCreate, onBackPressed, onDestroy
+        //check for existing files within the temp folder, if there are - removes them
+        @SuppressLint("SdCardPath") String path = "/data/user/0/com.example.painter/cache"; //path for the temp folder
         Log.d("Files", "Path: " + path);
         File directory = new File(path);
         File[] files = directory.listFiles();
@@ -109,13 +107,11 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
         return false;
     }
 
-
     @Override
     protected void onResume() {
         super.onResume();
         if (permissions() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
             requestPermissions(PERMISSIONS, REQUEST_PERMISSIONS);
-
     }
 
     @Override
@@ -150,10 +146,11 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
         Button undoBtn = findViewById(R.id.undo);
         Button rotateBtn = findViewById(R.id.rotate);
 
-        photoEditor = new PhotoEditor.Builder(this, imageView).setPinchTextScalable(true).build();
+        photoEditor = new PhotoEditor.Builder(this, imageView).setPinchTextScalable(true).build(); //initializing the API object
 
 
         selectImageBtn.setOnClickListener(view -> {
+            //pick from device storage
             final Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
             intent.setType("image/*");
             final Intent pickIntent = new Intent(Intent.ACTION_PICK);
@@ -178,6 +175,7 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
         });
 
         bwBtn.setOnClickListener(view -> {
+            //setting&enabling brush
             photoEditor.setBrushDrawingMode(true);
             BrushFragment brushFragment = BrushFragment.getInstace();
             brushFragment.setListener(MainActivity.this);
@@ -185,28 +183,17 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
         });
 
         textBtn.setOnClickListener(view -> {
+            //setting and adding custom text box
             TextFragment textFragment = TextFragment.getInstance();
             textFragment.setListener(MainActivity.this);
             textFragment.show(getSupportFragmentManager(), textFragment.getTag());
         });
-
-        rotateBtn.setOnClickListener(view -> {
-            RotateFragment rotateFragment = RotateFragment.getInstance();
-            if (backWasPressed) {
-                backWasPressed = false;
-                rotateFragment.seekBar_rotate.setProgress(0);
-            }
-            rotateFragment.setListener(MainActivity.this);
-            rotateFragment.show(getSupportFragmentManager(), rotateFragment.getTag());
-        });
-
 
         cropBtn.setOnClickListener(view -> {
             undo_array[undo_it++] = 1;
             //undo_it++;
             cropStack.push(imageUri);
             System.out.println(imageUri);
-            //startCrop(imageUri);
             CropImage.activity(imageUri)
                     .start(MainActivity.this);
         });
@@ -219,9 +206,8 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
                 photoEditor.undo();
         });
 
+        /*TODO: CHANGE THIS*/
         imageView.setOnClickListener(view -> {
-            System.out.println("it size=" + undo_it + " array=" + Arrays.toString(undo_array));
-
             undo_it++;
             undo_array[undo_it] = 0;
         });
@@ -258,7 +244,7 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
         });
 
         backBtn.setOnClickListener(view -> {
-            while (!cropStack.empty())
+            while (!cropStack.empty()) //clearing stack from all Uri's
                 cropStack.pop();
             findViewById(R.id.editScreen).setVisibility(View.GONE);
             findViewById(R.id.welcomeScreen).setVisibility(View.VISIBLE);
@@ -268,7 +254,7 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
 
     }
 
-    private void toasting(String msg) {
+    private void toasting(String msg) { //toasting made easier
         Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_SHORT).show();
     }
 
@@ -280,36 +266,22 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
         context.sendBroadcast(mediaScanIntent);
     }
 
-    private void removeStackFile(){
-        while(!cropStack.empty()){
-            Uri temp_uri = cropStack.pop();
-            File temp_file = new File(temp_uri.getPath());
-            if (temp_file.delete()){
-                System.out.println(temp_uri.getPath() + " DELETED");
-            }
-            else{
-                System.out.println(temp_uri.getPath() + " NOT_DELETED");
-
-                SecurityManager securityManager = new SecurityManager();
-                securityManager.checkDelete(temp_uri.getPath());
-            }
-        }
-    }
-
     public void onBackPressed() {
         if (editMode) {
-            readFolder();
-            backWasPressed = true;
+            readFolder();   //remove temp files from last attempt
+            //toggle views
             findViewById(R.id.editScreen).setVisibility(View.GONE);
             findViewById(R.id.welcomeScreen).setVisibility(View.VISIBLE);
             editMode = false;
-        } else {
+        } else {    //if already at welcomeScreen
             super.onBackPressed();
         }
     }
 
     private File createImageFile() {
+        //date setting for the captured image
         @SuppressLint("SimpleDateFormat") final String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+        //place the captured image to the gallery
         final File dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES);
         final String filename = "/JPEG_" + timeStamp + ".jpg";
         return new File(dir + filename);
@@ -320,9 +292,6 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        /*
-        * To be cleared in the future
-        * */
         if (resultCode != RESULT_OK)
             return;
 
@@ -342,9 +311,6 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
             return;
         } else if (requestCode == REQUEST_PICK_IMAGE) {
             imageUri = data.getData();
-        } else if (requestCode == UCrop.REQUEST_CROP) {
-            handleCropResult(data);
-            //imageView.getSource().setImageURI(tempUri);
         } else if (requestCode == CropImage.CROP_IMAGE_ACTIVITY_REQUEST_CODE) {
             CropImage.ActivityResult result = CropImage.getActivityResult(data);
             toasting("SUCCESS");
@@ -406,25 +372,6 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
 
     }
 
-    private void handleCropError(Intent data) {
-        final Throwable cropError = UCrop.getError(data);
-        if (cropError != null) {
-            Toast.makeText(this, "" + cropError.getMessage(), Toast.LENGTH_SHORT).show();
-        } else {
-            Toast.makeText(this, "Unexpected Error", Toast.LENGTH_SHORT).show();
-        }
-    }
-
-    private void handleCropResult(Intent data) {
-        //final Uri resultUri = UCrop.getOutput(data);
-        imageUri = UCrop.getOutput(data);
-        if (imageUri != null) {
-            imageView.getSource().setImageURI(imageUri);
-        } else {
-            Toast.makeText(this, "Error retrieving cropped image", Toast.LENGTH_SHORT).show();
-        }
-
-    }
 
     @Override
     public void onBrushSizeChangedListener(float size) {
@@ -463,6 +410,4 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
         }
         imageView.setRotation(angle);
     }
-
-
 }
