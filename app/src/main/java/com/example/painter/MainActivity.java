@@ -94,6 +94,12 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
         init();
     }
 
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        readFolder();
+    }
+
     @SuppressLint("NewAPI")
     private boolean permissions() {
         for (int i = 0; i < PERMISSIONS_COUNT; i++)
@@ -290,13 +296,9 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
         }
     }
 
-
     public void onBackPressed() {
         if (editMode) {
-            /*while (!cropStack.empty())
-                cropStack.pop();*/
-            removeStackFile();
-            imageView.setRotation(0);
+            readFolder();
             backWasPressed = true;
             findViewById(R.id.editScreen).setVisibility(View.GONE);
             findViewById(R.id.welcomeScreen).setVisibility(View.VISIBLE);
