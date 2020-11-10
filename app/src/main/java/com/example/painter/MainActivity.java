@@ -10,6 +10,7 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -44,6 +45,12 @@ import java.util.UUID;
 import ja.burhanrashid52.photoeditor.PhotoEditor;
 import ja.burhanrashid52.photoeditor.PhotoEditorView;
 
+/*
+* TODO:
+*  - fix bug of temp images being saved on device
+*  - implement fully working undo mechanic which will include: native API undo & image Uri stack
+*  - clear unnecessary code
+* */
 
 public class MainActivity extends AppCompatActivity implements BrushFragmentListener, TextFragmentListener, RotateFragmentListener {
     private File testFile = new File("cache/cropped6182308419473422355.jpg");
@@ -79,11 +86,22 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
 
     private static boolean editMode = false;
     private static boolean backWasPressed = false;
-    //private boolean wasCropped = false;
 
-//    static {
-//        System.loadLibrary("NativeImageProcessor");
-//    }
+    public void readFolder(){
+
+        String path = "/data/user/0/com.example.painter/cache";
+        Log.d("Files", "Path: " + path);
+        File directory = new File(path);
+        File[] files = directory.listFiles();
+        Log.d("Files", "Size: "+ files.length);
+        for (int i = 0; i < files.length; i++)
+        {
+            Log.d("Files", "FileName:" + files[i].getName());
+            files[i].delete();
+            System.out.println("DELETED");
+        }
+    }
+
     private boolean checkFile(File f){
         if(f==null){
             System.out.println("NOT EXIST");
@@ -99,7 +117,8 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        testFile = new File("data/user/0/com.example.painter/cache/cropped2967850378899401309.jpg");
+        readFolder();
+        testFile = new File("data/user/0/com.example.painter/cache/cropped5063279485358004269.jpg");
         if(checkFile(testFile)==true){
             ImageView iv = findViewById(R.id.testPic);
             iv.setVisibility(View.VISIBLE);
@@ -107,6 +126,10 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
             System.out.println(t);
             Uri uri = Uri.parse(t);
             iv.setImageURI(uri);
+        }
+        else{
+            ImageView iv = findViewById(R.id.testPic);
+            iv.setBackgroundColor(Color.WHITE);
         }
         init();
 
@@ -328,11 +351,28 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
         uCrop.start(MainActivity.this);
     }
 
+    private void removeStackFile(){
+        while(!cropStack.empty()){
+            Uri temp_uri = cropStack.pop();
+            File temp_file = new File(temp_uri.getPath());
+            if (temp_file.delete()){
+                System.out.println(temp_uri.getPath() + " DELETED");
+            }
+            else{
+                System.out.println(temp_uri.getPath() + " NOT_DELETED");
+
+                SecurityManager securityManager = new SecurityManager();
+                securityManager.checkDelete(temp_uri.getPath());
+            }
+        }
+    }
+
 
     public void onBackPressed() {
         if (editMode) {
-            while (!cropStack.empty())
-                cropStack.pop();
+            /*while (!cropStack.empty())
+                cropStack.pop();*/
+            removeStackFile();
             imageView.setRotation(0);
             backWasPressed = true;
             findViewById(R.id.editScreen).setVisibility(View.GONE);
@@ -361,6 +401,9 @@ public class MainActivity extends AppCompatActivity implements BrushFragmentList
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        /*
+        * To be cleared in the future
+        * */
         if (resultCode != RESULT_OK)
             return;
 
