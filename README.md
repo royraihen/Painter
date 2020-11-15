@@ -11,3 +11,6 @@ Save to gallery
 Paint with brush and eraser
 Add custom text
 Crop or rotate image
+
+*****KNOWN ISSUES*****
+-Undo mechanic doesn't work perefctly and might cause some application crashs
